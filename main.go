@@ -26,7 +26,7 @@ func main() {
 		fmt.Println("ViaCepResponse: ", viaCepResponse)
 	case cdnResponse := <-chCdn:
 		fmt.Println("CdnResponse: ", cdnResponse)
-	case <-time.After(time.Second * 10):
+	case <-time.After(time.Second * 1):
 		fmt.Println("Timeout")
 	}
 }
