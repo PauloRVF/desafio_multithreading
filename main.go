@@ -10,13 +10,16 @@ import (
 )
 
 func main() {
-	chViaCep := make(chan interface{})
-	chCdn := make(chan interface{})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go doRequestViaCEP(ctx, "02310000", chViaCep)
-	go doRequestCDN(ctx, "02310-000", chCdn)
+	cep := "02310000"
+
+	chViaCep := make(chan interface{})
+	chCdn := make(chan interface{})
+
+	go doRequestViaCEP(ctx, cep, chViaCep)
+	go doRequestCDN(ctx, cep, chCdn)
 
 	select {
 	case viaCepResponse := <-chViaCep:
