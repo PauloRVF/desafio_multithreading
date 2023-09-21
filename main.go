@@ -6,17 +6,24 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
+
+	"github.com/PauloRVF/desafio_multithreading/zzz_desafio_mutithreading/dto"
 )
 
 func main() {
+	if len(os.Args) < 2 {
+		fmt.Print("You must inform a CEP. Example: 02310000")
+		return
+	}
+	cep := os.Args[1]
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cep := "02310000"
-
-	chViaCep := make(chan interface{})
-	chCdn := make(chan interface{})
+	chViaCep := make(chan dto.ViaCepResponse)
+	chCdn := make(chan dto.CdnResponse)
 
 	go doRequestViaCEP(ctx, cep, chViaCep)
 	go doRequestCDN(ctx, cep, chCdn)
@@ -31,27 +38,46 @@ func main() {
 	}
 }
 
-func doRequestViaCEP(ctx context.Context, cep string, channel chan<- interface{}) {
+func doFormatCEP(cep string) string {
+	return fmt.Sprintf("%s-%s", cep[:5], cep[5:])
+}
+
+func doRequestViaCEP(ctx context.Context, cep string, channel chan<- dto.ViaCepResponse) {
 	response, err := doRequest(ctx, "https://viacep.com.br/ws/"+cep+"/json/")
 	if err != nil {
 		fmt.Printf("ViaCEPError: %s\n", err.Error())
 		return
 	}
 
-	channel <- response
+	var viaCepResponse dto.ViaCepResponse
+	err = json.Unmarshal(response, &viaCepResponse)
+	if err != nil {
+		fmt.Printf("ViaCEPResponseParseError: %s\n", err.Error())
+		return
+	}
+
+	channel <- viaCepResponse
 }
 
-func doRequestCDN(ctx context.Context, cep string, channel chan<- interface{}) {
+func doRequestCDN(ctx context.Context, cep string, channel chan<- dto.CdnResponse) {
+	cep = doFormatCEP(cep)
 	response, err := doRequest(ctx, "https://cdn.apicep.com/file/apicep/"+cep+".json")
 	if err != nil {
 		fmt.Printf("CDNError: %s\n", err.Error())
 		return
 	}
 
-	channel <- response
+	var cdnResponse dto.CdnResponse
+	err = json.Unmarshal(response, &cdnResponse)
+	if err != nil {
+		fmt.Printf("CDNResponseParseError: %s\n", err.Error())
+		return
+	}
+
+	channel <- cdnResponse
 }
 
-func doRequest(ctx context.Context, URI string) (map[string]interface{}, error) {
+func doRequest(ctx context.Context, URI string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", URI, nil)
 	if err != nil {
 		return nil, err
@@ -72,11 +98,5 @@ func doRequest(ctx context.Context, URI string) (map[string]interface{}, error) 
 		return nil, err
 	}
 
-	var mapResponse map[string]interface{}
-	err = json.Unmarshal(body, &mapResponse)
-	if err != nil {
-		return nil, err
-	}
-
-	return mapResponse, nil
+	return body, nil
 }
